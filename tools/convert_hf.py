@@ -249,6 +249,8 @@ def convert_hf_model_weights(model, output_dir, precision='INT8', args=None):
         detected_model_type = 'lfm2'
     elif 'qwen' in model_type_str:
         detected_model_type = 'qwen'
+    elif 'mistral' in model_type_str:
+        detected_model_type = 'mistral'
     elif 'llama' in model_type_str:
         if('smol' in str(output_dir)):
             detected_model_type = 'smol'
@@ -273,7 +275,8 @@ def convert_hf_model_weights(model, output_dir, precision='INT8', args=None):
         'ffn_intermediate_dim': _cfg_get(cfg, 'intermediate_size', _cfg_get(cfg, 'n_inner', 0)),
         'context_length': _cfg_get(cfg, 'max_position_embeddings', _cfg_get(cfg, 'max_sequence_length', 0)),
         'rope_theta': _cfg_get(cfg, 'rope_theta', _cfg_get(config, 'rope_theta', 10000.0)),
-        'attention_head_dim': int(_cfg_get(cfg, 'head_dim', int(_cfg_get(cfg, 'hidden_size', _cfg_get(cfg, 'hidden_dim', 0)) // max(1, _cfg_get(cfg, 'num_attention_heads', 1))))),
+        'sliding_window': _cfg_get(cfg, 'sliding_window', None),
+        'attention_head_dim': int(_cfg_get(cfg, 'head_dim', ((_cfg_get(cfg, 'hidden_size', _cfg_get(cfg, 'hidden_dim', 0)) or 0) // max(1, _cfg_get(cfg, 'num_attention_heads', 1) or 1))) or 0),
         'layer_norm_eps': _cfg_get(cfg, 'layer_norm_eps', _cfg_get(cfg, 'layer_norm_epsilon', _cfg_get(cfg, 'rms_norm_eps', 1e-6))),
         'num_experts': _cfg_get(cfg, 'num_experts', 0),
         'num_shared_experts': _cfg_get(cfg, 'num_shared_experts', 0),
@@ -282,6 +285,12 @@ def convert_hf_model_weights(model, output_dir, precision='INT8', args=None):
         'tie_word_embeddings': tie_word_embeddings,
         'model_type': detected_model_type,
     }
+    # Default `attention_head_dim`
+    if model_config.get('attention_head_dim', 0) == 0:
+          hidden = model_config.get('hidden_dim', 0)
+          heads = model_config.get('attention_heads', 0)
+          if hidden and heads:
+              model_config['attention_head_dim'] = hidden // heads
 
     # Add VLM-specific config if this is a VLM model
     if is_vlm and vision_cfg is not None:
@@ -471,7 +480,8 @@ def convert_hf_model_weights(model, output_dir, precision='INT8', args=None):
     num_layers = model_config['num_layers']
     missing_tensors = []
     for i in range(num_layers):
-        
+        # Log the progress of layer-by-layer processing
+        print(f'  Processing layer {i+1 } / {num_layers}...', end='\r')
         layer_prefixes = [f'model.language_model.layers.{i}.', f'model.text_model.layers.{i}.', f'model.layers.{i}.', f'layers.{i}.', f'transformer.h.{i}.', f'encoder.layers.{i}.', f'decoder.layers.{i}.', f'model.encoder.layers.{i}.', f'model.decoder.layers.{i}.']
         
         existing_prefixes = set() #Culprit
