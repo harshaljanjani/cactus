@@ -31,6 +31,9 @@ void Tokenizer::detect_model_type(const std::string& config_path) {
             } else if (line.find("smol") != std::string::npos) {
                 model_type_ = ModelType::SMOL;
                 break;
+            } else if (line.find("mistral") != std::string::npos) {
+                model_type_ = ModelType::MISTRAL;
+                break;
             } else if (line.find("bert") != std::string::npos) {
                 model_type_ = ModelType::BERT;
                 break;
@@ -93,6 +96,8 @@ std::string Tokenizer::format_chat_prompt(const std::vector<ChatMessage>& messag
             return format_lfm2_style(messages, add_generation_prompt, tools_json);
         case ModelType::SMOL:
             return format_smol_style(messages, add_generation_prompt, tools_json);
+        case ModelType::MISTRAL:
+            return format_mistral_style(messages, add_generation_prompt, tools_json);
         default:
             return format_qwen_style(messages, add_generation_prompt, tools_json);
     }
@@ -408,6 +413,46 @@ std::string Tokenizer::format_smol_style(const std::vector<ChatMessage>& message
 
     if (add_generation_prompt) {
         result += "<|im_start|>assistant\n";
+    }
+
+    return result;
+}
+
+std::string Tokenizer::format_mistral_style(const std::vector<ChatMessage>& messages, bool add_generation_prompt, const std::string& tools_json) const {
+    std::string result = "<s>";
+
+    std::string system_message;
+    bool has_system = false;
+    for (const auto& msg : messages) {
+        if (msg.role == "system") {
+            system_message = msg.content;
+            has_system = true;
+            break;
+        }
+    }
+
+    bool first_user = true;
+    for (const auto& msg : messages) {
+        if (msg.role == "system") {
+            continue;
+        } else if (msg.role == "user") {
+            if (!tools_json.empty() && first_user) {
+                result += "[AVAILABLE_TOOLS] [" + tools_json + "][/AVAILABLE_TOOLS]";
+            }
+
+            result += "[INST] ";
+            if (first_user && has_system) {
+                result += system_message + "\n\n";
+            }
+            result += msg.content + "[/INST]";
+            first_user = false;
+        } else if (msg.role == "assistant") {
+            result += " " + msg.content + "</s>";
+        }
+    }
+
+    if (add_generation_prompt) {
+        result += " ";
     }
 
     return result;
