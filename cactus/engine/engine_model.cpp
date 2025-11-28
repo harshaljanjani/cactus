@@ -340,6 +340,14 @@ bool Config::from_json(const std::string& config_path) {
         else if (key == "attention_head_dim") attention_head_dim = static_cast<uint32_t>(std::stoul(value));
         else if (key == "layer_norm_eps") layer_norm_eps = std::stof(value);
         else if (key == "rope_theta") rope_theta = std::stof(value);
+        else if (key == "sliding_window") {
+            if (value == "null" || value == "None" || value.empty()) {
+                sliding_window = 0;
+            } else {
+                sliding_window = static_cast<uint32_t>(std::stoul(value));
+            }
+        }
+        else if (key == "context_length") context_length = static_cast<uint32_t>(std::stoul(value));
         else if (key == "num_experts") num_experts = static_cast<uint32_t>(std::stoul(value));
         else if (key == "num_shared_experts") num_shared_experts = static_cast<uint32_t>(std::stoul(value));
         else if (key == "num_top_experts") num_top_experts = static_cast<uint32_t>(std::stoul(value));
@@ -381,6 +389,7 @@ bool Config::from_json(const std::string& config_path) {
             if (value == "gemma" || value == "GEMMA") model_type = ModelType::GEMMA;
             else if (value == "lfm2" || value == "LFM2") model_type = ModelType::LFM2;
             else if (value == "smol" || value == "SMOL" || value == "Smol") model_type = ModelType::SMOL;
+            else if (value == "mistral" || value == "MISTRAL" || value == "Mistral") model_type = ModelType::MISTRAL;
             else if (value == "bert" || value == "BERT") model_type = ModelType::NOMIC;
             else if (value == "whisper" || value == "WHISPER") model_type = ModelType::WHISPER;
             else model_type = ModelType::QWEN;
@@ -477,6 +486,8 @@ std::unique_ptr<Model> create_model(const std::string& model_folder) {
             return std::make_unique<LFM2Model>(config);
         case Config::ModelType::SMOL:
             return std::make_unique<SmolModel>(config);
+        case Config::ModelType::MISTRAL:
+            return std::make_unique<MistralModel>(config);
         case Config::ModelType::NOMIC:
             return std::make_unique<NomicModel>(config);
         case Config::ModelType::WHISPER:
