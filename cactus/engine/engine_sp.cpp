@@ -215,7 +215,8 @@ std::string SPTokenizer::preprocess_text(const std::string& text) const {
 
     for (size_t i = text.find_first_not_of(" "); i < text.length(); i++) {
         char c = text[i];
-        if (c == ' ') {
+        // Phi-3 treats newlines like spaces in SentencePiece encoding
+        if (c == ' ' || (c == '\n' && model_type_ == ModelType::PHI3)) {
             processed += "▁";
         } else {
             processed += c;
@@ -383,6 +384,14 @@ std::vector<std::string> SPTokenizer::split_with_special_tokens(const std::strin
             }
             result.push_back(best_special_token);
             start = best_match_pos + best_match_len;
+            // Phi-3 specific: rstrip whitespace after special tokens (except <|endoftext|>)
+            // This matches `rstrip=True` behavior for Phi-3 chat tokens
+            if (model_type_ == ModelType::PHI3 && best_special_token != "<|endoftext|>") {
+                while (start < text.size() && (text[start] == ' ' || text[start] == '\n' ||
+                       text[start] == '\t' || text[start] == '\r')) {
+                    start++;
+                }
+            }
         } else {
             if (start < text.size()) {
                 result.push_back(text.substr(start));
