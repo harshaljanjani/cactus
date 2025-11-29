@@ -37,6 +37,9 @@ void Tokenizer::detect_model_type(const std::string& config_path) {
             } else if (line.find("whisper") != std::string::npos) {
                 model_type_ = ModelType::WHISPER;
                 break;
+            } else if (line.find("phi3") != std::string::npos || line.find("phi-3") != std::string::npos) {
+                model_type_ = ModelType::PHI3;
+                break;
             } else {
                 model_type_ = ModelType::UNKNOWN;
             } 
@@ -93,6 +96,8 @@ std::string Tokenizer::format_chat_prompt(const std::vector<ChatMessage>& messag
             return format_lfm2_style(messages, add_generation_prompt, tools_json);
         case ModelType::SMOL:
             return format_smol_style(messages, add_generation_prompt, tools_json);
+        case ModelType::PHI3:
+            return format_phi3_style(messages, add_generation_prompt, tools_json);
         default:
             return format_qwen_style(messages, add_generation_prompt, tools_json);
     }
@@ -408,6 +413,32 @@ std::string Tokenizer::format_smol_style(const std::vector<ChatMessage>& message
 
     if (add_generation_prompt) {
         result += "<|im_start|>assistant\n";
+    }
+
+    return result;
+}
+
+std::string Tokenizer::format_phi3_style(const std::vector<ChatMessage>& messages, bool add_generation_prompt, const std::string& tools_json) const {
+    if (!tools_json.empty()) {
+        return "ERROR: Tool calls are currently not supported for Phi-3 models";
+    }
+
+    std::string result;
+
+    for (const auto& msg : messages) {
+        if (msg.role == "system") {
+            result += "<|system|>\n";
+        } else if (msg.role == "user") {
+            result += "<|user|>\n";
+        } else if (msg.role == "assistant") {
+            result += "<|assistant|>\n";
+        }
+        result += msg.content;
+        result += "<|end|>\n";
+    }
+
+    if (add_generation_prompt) {
+        result += "<|assistant|>\n";
     }
 
     return result;
